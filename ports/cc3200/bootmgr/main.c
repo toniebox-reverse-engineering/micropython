@@ -81,18 +81,27 @@ extern void bootmgr_run_app (_u32 base);
 // Local functions declarations
 //*****************************************************************************
 static void bootmgr_board_init (void);
+#ifndef BOOTMGR_NO_HASH
 static bool bootmgr_verify (_u8 *image);
+#endif
 static void bootmgr_load_and_execute (_u8 *image);
+#ifndef BOOTMGR_TWO_BUTTON
 static bool wait_while_blinking (uint32_t wait_time, uint32_t period, bool force_wait);
 static bool safe_boot_request_start (uint32_t wait_time);
 static void wait_for_safe_boot (sBootInfo_t *psBootInfo);
 static void bootmgr_image_loader (sBootInfo_t *psBootInfo);
+#else
+static void prebootmgr_image_loader (sBootInfo_t *psBootInfo);
+#endif
 
 //*****************************************************************************
 // Private data
 //*****************************************************************************
+
+#ifndef BOOTMGR_NO_HASH
 static _u8 bootmgr_file_buf[BOOTMGR_BUFF_SIZE];
 static _u8 bootmgr_hash_buf[BOOTMGR_HASH_SIZE + 1];
+#endif
 
 //*****************************************************************************
 // Vector Table
@@ -174,6 +183,7 @@ static void bootmgr_board_init(void) {
     mperror_init0();
 }
 
+#ifndef BOOTMGR_NO_HASH
 //*****************************************************************************
 //! Verifies the integrity of the new application binary
 //*****************************************************************************
@@ -224,6 +234,7 @@ static bool bootmgr_verify (_u8 *image) {
     }
     return false;
 }
+#endif
 
 //*****************************************************************************
 //! Loads the application from sFlash and executes
@@ -248,6 +259,7 @@ static void bootmgr_load_and_execute (_u8 *image) {
     }
 }
 
+#ifndef BOOTMGR_TWO_BUTTON
 //*****************************************************************************
 //! Wait while the safe mode pin is being held high and blink the system led
 //! with the specified period
@@ -287,7 +299,9 @@ static void wait_for_safe_boot (sBootInfo_t *psBootInfo) {
         // turn off the system led
         MAP_GPIOPinWrite(MICROPY_SYS_LED_PORT, MICROPY_SYS_LED_PORT_PIN, 0);
         // request a safe boot to the application
+        #ifndef BOOTMGR_NOBOOTBIT
         PRCMSetSpecialBit(PRCM_SAFE_BOOT_BIT);
+        #endif
     }
     // deinit the safe boot pin
     mperror_deinit_sfe_pin();
@@ -316,6 +330,7 @@ static void bootmgr_image_loader(sBootInfo_t *psBootInfo) {
 
     // do we have a new image that needs to be verified?
     if ((psBootInfo->ActiveImg != IMG_ACT_FACTORY) && (psBootInfo->Status == IMG_STATUS_CHECK)) {
+        #ifndef BOOTMGR_NO_HASH
         if (!bootmgr_verify(image)) {
             // verification failed, delete the broken file
             sl_FsDel(image, 0);
@@ -323,6 +338,7 @@ static void bootmgr_image_loader(sBootInfo_t *psBootInfo) {
             psBootInfo->ActiveImg = psBootInfo->PrevImg;
             psBootInfo->PrevImg = IMG_ACT_FACTORY;
         }
+        #endif
         // in any case, change the status to "READY"
         psBootInfo->Status = IMG_STATUS_READY;
         // write the new boot info
@@ -351,7 +367,56 @@ static void bootmgr_image_loader(sBootInfo_t *psBootInfo) {
     }
     bootmgr_load_and_execute(image);
 }
+#else
+static void prebootmgr_image_loader(sBootInfo_t *psBootInfo) {
+    _u8 *image;
 
+    MAP_GPIOPinWrite(TONIEBOX_GREEN_LED_PORT, TONIEBOX_GREEN_LED_PORT_PIN, 0xFF);
+
+    while (!(TONIEBOX_BIG_EAR_PORT_PIN & MAP_GPIOPinRead(TONIEBOX_BIG_EAR_PORT, TONIEBOX_BIG_EAR_PORT_PIN))) {
+        if (!(TONIEBOX_SMALL_EAR_PORT_PIN & MAP_GPIOPinRead(TONIEBOX_SMALL_EAR_PORT, TONIEBOX_SMALL_EAR_PORT_PIN))) {
+            switch (psBootInfo->ActiveImg) {
+                case IMG_ACT_UPDATE1:
+                    psBootInfo->ActiveImg = IMG_ACT_UPDATE2;
+                    break;                
+                case IMG_ACT_UPDATE2:
+                    psBootInfo->ActiveImg = IMG_ACT_FACTORY;
+                    break;
+                default:
+                    psBootInfo->ActiveImg = IMG_ACT_UPDATE1;
+                    break;
+                }
+            while (!(TONIEBOX_SMALL_EAR_PORT_PIN & MAP_GPIOPinRead(TONIEBOX_SMALL_EAR_PORT, TONIEBOX_SMALL_EAR_PORT_PIN))) {
+                UtilsDelay(UTILS_DELAY_US_TO_COUNT(100 * 1000)); //Wait while pressed
+            }
+        }
+        for (int i=0; i<psBootInfo->ActiveImg+1; i++) {
+            MAP_GPIOPinWrite(MICROPY_SYS_LED_PORT, MICROPY_SYS_LED_PORT_PIN, 0xFF);
+            UtilsDelay(UTILS_DELAY_US_TO_COUNT(100 * 1000));
+            MAP_GPIOPinWrite(MICROPY_SYS_LED_PORT, MICROPY_SYS_LED_PORT_PIN, 0);
+            UtilsDelay(UTILS_DELAY_US_TO_COUNT(100 * 1000));
+        }
+        UtilsDelay(UTILS_DELAY_US_TO_COUNT(500 * 1000));
+    }
+    
+    MAP_GPIOPinWrite(TONIEBOX_GREEN_LED_PORT, TONIEBOX_GREEN_LED_PORT_PIN, 0); // turn off the system led
+
+
+    // search for the active image
+    switch (psBootInfo->ActiveImg) {
+    case IMG_ACT_UPDATE1:
+        image = (unsigned char *)IMG_UPDATE1; //Custom Firmware
+        break;
+    case IMG_ACT_UPDATE2:
+        image = (unsigned char *)IMG_UPDATE2; //MicroPython
+        break;
+    default:
+        image = (unsigned char *)IMG_FACTORY; //Original
+        break;
+    }
+    bootmgr_load_and_execute(image);
+}
+#endif
 //*****************************************************************************
 //! Main function
 //*****************************************************************************
@@ -391,7 +456,11 @@ int main (void) {
 
     if (bootapp) {
         // load and execute the image based on the boot info
+        #ifndef BOOTMGR_TWO_BUTTON
         bootmgr_image_loader(&sBootInfo);
+        #else
+        prebootmgr_image_loader(&sBootInfo);
+        #endif
     }
 
     // stop simplelink

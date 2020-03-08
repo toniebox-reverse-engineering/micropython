@@ -35,17 +35,37 @@
 #define MICROPY_STDIO_UART                          1
 #define MICROPY_STDIO_UART_BAUD                     115200
 
+/**/
+#define TONIEBOX_GREEN_LED_PRCM                     PRCM_GPIOA3
+#define TONIEBOX_BIG_EAR_PRCM                       PRCM_GPIOA0
+#define TONIEBOX_SMALL_EAR_PRCM                     PRCM_GPIOA0
+#define TONIEBOX_GREEN_LED_PORT                     GPIOA3_BASE
+#define TONIEBOX_BIG_EAR_PORT                       GPIOA0_BASE
+#define TONIEBOX_SMALL_EAR_PORT                     GPIOA0_BASE
 
-#define MICROPY_SYS_LED_PRCM                        PRCM_GPIOA3
-#define MICROPY_SAFE_BOOT_PRCM                      PRCM_GPIOA0
-#define MICROPY_SYS_LED_PORT                        GPIOA3_BASE
-#define MICROPY_SAFE_BOOT_PORT                      GPIOA0_BASE
-#define MICROPY_SYS_LED_GPIO                        pin_GP25
-#define MICROPY_SYS_LED_PIN_NUM                     PIN_21      // GP25/SOP2
-#define MICROPY_SAFE_BOOT_PIN_NUM                   PIN_59      // GP04
-#define MICROPY_SYS_LED_PORT_PIN                    GPIO_PIN_1
-#define MICROPY_SAFE_BOOT_PORT_PIN                  GPIO_PIN_4
+#define TONIEBOX_GREEN_LED_GPIO                     pin_GP25
+#define TONIEBOX_GREEN_LED_PIN_NUM                  PIN_21      // GP25/SOP2
+#define TONIEBOX_BIG_EAR_PIN_NUM                    PIN_57      // GP02
+#define TONIEBOX_SMALL_EAR_PIN_NUM                  PIN_59      // GP04
+#define TONIEBOX_GREEN_LED_PORT_PIN                 GPIO_PIN_1
+#define TONIEBOX_BIG_EAR_PORT_PIN                   GPIO_PIN_2
+#define TONIEBOX_SMALL_EAR_PORT_PIN                 GPIO_PIN_4
+/**/
+
+#define MICROPY_SYS_LED_PRCM                        TONIEBOX_GREEN_LED_PRCM
+#define MICROPY_SAFE_BOOT_PRCM                      TONIEBOX_BIG_EAR_PRCM
+#define MICROPY_SYS_LED_PORT                        TONIEBOX_GREEN_LED_PORT
+#define MICROPY_SAFE_BOOT_PORT                      TONIEBOX_BIG_EAR_PORT
+#define MICROPY_SYS_LED_GPIO                        TONIEBOX_GREEN_LED_GPIO
+#define MICROPY_SYS_LED_PIN_NUM                     TONIEBOX_GREEN_LED_PIN_NUM
+#define MICROPY_SAFE_BOOT_PIN_NUM                   TONIEBOX_BIG_EAR_PIN_NUM
+#define MICROPY_SYS_LED_PORT_PIN                    TONIEBOX_GREEN_LED_PORT_PIN
+#define MICROPY_SAFE_BOOT_PORT_PIN                  TONIEBOX_BIG_EAR_PORT_PIN
 
 
 #define MICROPY_PORT_SFLASH_BLOCK_COUNT             32
+
+#define BOOTMGR_NO_HASH 1
+#define BOOTMGR_NOBOOTBIT 1
+#define BOOTMGR_TWO_BUTTON 1
 

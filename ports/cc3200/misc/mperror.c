@@ -78,11 +78,24 @@ void mperror_init0 (void) {
 #ifdef BOOTLOADER
     // enable the system led and the safe boot pin peripheral clocks
     MAP_PRCMPeripheralClkEnable(MICROPY_SYS_LED_PRCM, PRCM_RUN_MODE_CLK | PRCM_SLP_MODE_CLK);
+    #ifdef BOOTMGR_TWO_BUTTON
+    MAP_PRCMPeripheralClkEnable(TONIEBOX_BIG_EAR_PRCM, PRCM_RUN_MODE_CLK | PRCM_SLP_MODE_CLK);
+    MAP_PRCMPeripheralClkEnable(TONIEBOX_SMALL_EAR_PRCM, PRCM_RUN_MODE_CLK | PRCM_SLP_MODE_CLK);
+
+    MAP_PinTypeGPIO(TONIEBOX_BIG_EAR_PIN_NUM, PIN_MODE_0, false);
+    MAP_PinConfigSet(TONIEBOX_BIG_EAR_PIN_NUM, PIN_STRENGTH_4MA, PIN_TYPE_STD_PU);
+    MAP_GPIODirModeSet(TONIEBOX_BIG_EAR_PORT, TONIEBOX_BIG_EAR_PORT_PIN, GPIO_DIR_MODE_IN);
+    MAP_PinTypeGPIO(TONIEBOX_SMALL_EAR_PIN_NUM, PIN_MODE_0, false);
+    MAP_PinConfigSet(TONIEBOX_SMALL_EAR_PIN_NUM, PIN_STRENGTH_4MA, PIN_TYPE_STD_PU);
+    MAP_GPIODirModeSet(TONIEBOX_SMALL_EAR_PORT, TONIEBOX_SMALL_EAR_PORT_PIN, GPIO_DIR_MODE_IN);
+    #else
     MAP_PRCMPeripheralClkEnable(MICROPY_SAFE_BOOT_PRCM, PRCM_RUN_MODE_CLK | PRCM_SLP_MODE_CLK);
+
     // configure the safe boot pin
     MAP_PinTypeGPIO(MICROPY_SAFE_BOOT_PIN_NUM, PIN_MODE_0, false);
-    MAP_PinConfigSet(MICROPY_SAFE_BOOT_PIN_NUM, PIN_STRENGTH_4MA, PIN_TYPE_STD_PD);
+    MAP_PinConfigSet(MICROPY_SAFE_BOOT_PIN_NUM, PIN_STRENGTH_4MA, PIN_TYPE_STD_PU);
     MAP_GPIODirModeSet(MICROPY_SAFE_BOOT_PORT, MICROPY_SAFE_BOOT_PORT_PIN, GPIO_DIR_MODE_IN);
+    #endif
     // configure the bld
     MAP_PinTypeGPIO(MICROPY_SYS_LED_PIN_NUM, PIN_MODE_0, false);
     MAP_PinConfigSet(MICROPY_SYS_LED_PIN_NUM, PIN_STRENGTH_6MA, PIN_TYPE_STD);
@@ -120,8 +133,13 @@ void mperror_bootloader_check_reset_cause (void) {
 }
 
 void mperror_deinit_sfe_pin (void) {
+    #ifdef BOOTMGR_TWO_BUTTON
+    MAP_PinConfigSet(TONIEBOX_BIG_EAR_PIN_NUM, PIN_STRENGTH_4MA, PIN_TYPE_STD);
+    MAP_PinConfigSet(TONIEBOX_SMALL_EAR_PIN_NUM, PIN_STRENGTH_4MA, PIN_TYPE_STD);
+    #else
     // disable the pull-down
     MAP_PinConfigSet(MICROPY_SAFE_BOOT_PIN_NUM, PIN_STRENGTH_4MA, PIN_TYPE_STD);
+    #endif
 }
 
 void mperror_signal_error (void) {

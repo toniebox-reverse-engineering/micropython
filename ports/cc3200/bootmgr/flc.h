@@ -40,12 +40,25 @@ extern "C"
 /******************************************************************************
    Image file names
 *******************************************************************************/
-#define IMG_BOOT_INFO           "/sys/bootinfo.bin"
-#define IMG_FACTORY             "/sys/factimg.bin"
-#define IMG_UPDATE1             "/sys/updtimg1.bin"
-#define IMG_UPDATE2             "/sys/updtimg2.bin"
-#define IMG_PREFIX              "/sys/updtimg"
-
+/*
+#define IMG_BOOT_INFO           "/sys/ofw-bootinfo.bin"
+#define IMG_FACTORY             "/sys/ofw-img.bin"
+#define IMG_UPDATE1             "/sys/ofw-img1.bin"
+#define IMG_UPDATE2             "/sys/ofw-img2.bin"
+#define IMG_PREFIX              "/sys/ofw-img"
+*/
+#define IMG_BOOT_INFO           "/sys/pre-bootinfo.bin"
+#define IMG_FACTORY             "/sys/pre-img.bin"
+#define IMG_UPDATE1             "/sys/pre-img1.bin"
+#define IMG_UPDATE2             "/sys/pre-img2.bin"
+#define IMG_PREFIX              "/sys/pre-img"
+/*
+#define IMG_BOOT_INFO           "/sys/cfw-bootinfo.bin"
+#define IMG_FACTORY             "/sys/cfw-img.bin"
+#define IMG_UPDATE1             "/sys/cfw-img1.bin"
+#define IMG_UPDATE2             "/sys/cfw-img2.bin"
+#define IMG_PREFIX              "/sys/cfw-img"
+*/
 #define IMG_SRVPACK             "/sys/servicepack.ucf"
 #define SRVPACK_SIGN            "/sys/servicepack.sig"
 
