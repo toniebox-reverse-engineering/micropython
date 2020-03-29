@@ -373,6 +373,10 @@ static void prebootmgr_image_loader(sBootInfo_t *psBootInfo) {
 
     MAP_GPIOPinWrite(TONIEBOX_GREEN_LED_PORT, TONIEBOX_GREEN_LED_PORT_PIN, 0xFF);
 
+    while (!(TONIEBOX_SMALL_EAR_PORT_PIN & MAP_GPIOPinRead(TONIEBOX_SMALL_EAR_PORT, TONIEBOX_SMALL_EAR_PORT_PIN))) {
+        UtilsDelay(UTILS_DELAY_US_TO_COUNT(100 * 1000)); //Wait while pressed
+    }
+
     while (!(TONIEBOX_BIG_EAR_PORT_PIN & MAP_GPIOPinRead(TONIEBOX_BIG_EAR_PORT, TONIEBOX_BIG_EAR_PORT_PIN))) {
         if (!(TONIEBOX_SMALL_EAR_PORT_PIN & MAP_GPIOPinRead(TONIEBOX_SMALL_EAR_PORT, TONIEBOX_SMALL_EAR_PORT_PIN))) {
             switch (psBootInfo->ActiveImg) {
