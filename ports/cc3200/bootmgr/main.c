@@ -163,6 +163,7 @@ static void bootmgr_board_init(void) {
     // mandatory MCU initialization
     PRCMCC3200MCUInit();
 
+    #ifndef BOOTMGR_NOBOOTBIT
     // clear all the special bits, since we can't trust their content after reset
     // except for the WDT reset one!!
     PRCMClearSpecialBit(PRCM_SAFE_BOOT_BIT);
@@ -170,14 +171,17 @@ static void bootmgr_board_init(void) {
 
     // check the reset after clearing the special bits
     mperror_bootloader_check_reset_cause();
+    #endif
 
 #if MICROPY_HW_ANTENNA_DIVERSITY
     // configure the antenna selection pins
     antenna_init0();
 #endif
 
+    #ifndef BOOTMGR_NO_HASH
     // enable the data hashing engine
     CRYPTOHASH_Init();
+    #endif
 
     // init the system led and the system switch
     mperror_init0();
@@ -455,7 +459,9 @@ int main (void) {
             sl_FsClose(fhandle, 0, 0, 0);
         }
         // signal the first boot to the application
+        #ifndef BOOTMGR_NOBOOTBIT
         PRCMSetSpecialBit(PRCM_FIRST_BOOT_BIT);
+        #endif
     }
 
     if (bootapp) {
