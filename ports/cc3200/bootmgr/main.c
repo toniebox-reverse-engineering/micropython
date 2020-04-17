@@ -378,6 +378,44 @@ static void bootmgr_image_loader(sBootInfo_t *psBootInfo) {
     bootmgr_load_and_execute(image);
 }
 #else
+
+static unsigned char * prebootmgr_image_get_file(_u8 imgId) {
+    _u8 *image;
+    switch (imgId) {
+    case IMG_ACT_UPDATE1:
+        image = (unsigned char *)IMG_UPDATE1; //Custom Firmware
+        break;
+    case IMG_ACT_UPDATE2:
+        image = (unsigned char *)IMG_UPDATE2; //MicroPython
+        break;
+    case IMG_ACT_UPDATE3:
+        image = (unsigned char *)IMG_UPDATE3; //MicroPython
+        break;
+    default:
+        image = (unsigned char *)IMG_FACTORY; //Original
+        break;
+    }
+    return (unsigned char *)image;
+}
+static bool prebootmgr_image_valid(_u8 imgId) {
+    _u8 *image = prebootmgr_image_get_file(imgId);
+    _i32 fhandle;
+    if (!sl_FsOpen((unsigned char *)image, FS_MODE_OPEN_READ, NULL, &fhandle)) {
+        sl_FsClose(fhandle, 0, 0, 0);
+        return true;
+    }
+    return false;
+}
+
+static void prebootmgr_blink(int times, int wait_us) {
+    for (int i=0; i<times+1; i++) {
+        MAP_GPIOPinWrite(MICROPY_SYS_LED_PORT, MICROPY_SYS_LED_PORT_PIN, 0xFF);
+        UtilsDelay(UTILS_DELAY_US_TO_COUNT(wait_us * 1000));
+        MAP_GPIOPinWrite(MICROPY_SYS_LED_PORT, MICROPY_SYS_LED_PORT_PIN, 0);
+        UtilsDelay(UTILS_DELAY_US_TO_COUNT(wait_us * 1000));
+    }
+}
+
 static void prebootmgr_image_loader(sBootInfo_t *psBootInfo) {
     _u8 *image;
 
@@ -407,12 +445,7 @@ static void prebootmgr_image_loader(sBootInfo_t *psBootInfo) {
                 UtilsDelay(UTILS_DELAY_US_TO_COUNT(10 * 1000)); //Wait while pressed
             }
         }
-        for (int i=0; i<psBootInfo->ActiveImg+1; i++) {
-            MAP_GPIOPinWrite(MICROPY_SYS_LED_PORT, MICROPY_SYS_LED_PORT_PIN, 0xFF);
-            UtilsDelay(UTILS_DELAY_US_TO_COUNT(100 * 1000));
-            MAP_GPIOPinWrite(MICROPY_SYS_LED_PORT, MICROPY_SYS_LED_PORT_PIN, 0);
-            UtilsDelay(UTILS_DELAY_US_TO_COUNT(100 * 1000));
-        }
+        prebootmgr_blink(psBootInfo->ActiveImg, 100);
         UtilsDelay(UTILS_DELAY_US_TO_COUNT(500 * 1000));
     }
     
@@ -420,19 +453,11 @@ static void prebootmgr_image_loader(sBootInfo_t *psBootInfo) {
 
 
     // search for the active image
-    switch (psBootInfo->ActiveImg) {
-    case IMG_ACT_UPDATE1:
-        image = (unsigned char *)IMG_UPDATE1; //Custom Firmware
-        break;
-    case IMG_ACT_UPDATE2:
-        image = (unsigned char *)IMG_UPDATE2; //MicroPython
-        break;
-    case IMG_ACT_UPDATE3:
-        image = (unsigned char *)IMG_UPDATE3; //MicroPython
-        break;
-    default:
-        image = (unsigned char *)IMG_FACTORY; //Original
-        break;
+    if (prebootmgr_image_valid(psBootInfo->ActiveImg)) {
+        image = prebootmgr_image_get_file(psBootInfo->ActiveImg);
+    } else {
+        prebootmgr_blink(10, 33); //Warning about fallback
+        image = (unsigned char *)IMG_FACTORY;
     }
     bootmgr_load_and_execute(image);
 }
