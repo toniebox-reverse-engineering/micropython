@@ -41,6 +41,11 @@
 /******************************************************************************
  DEFINE PRIVATE CONSTANTS
  ******************************************************************************/
+#define UPDATER_FLASH_PREFIX         "/flash"
+#define UPDATER_SYS_PREFIX           "/flash/sys/"
+#define UPDATER_BOOT_POSTFIX         "bootinfo.bin"
+#define UPDATER_IMG_POSTFIX          ".bin"
+
 #define UPDATER_IMG_PATH            "/flash/sys/mcuimg.bin"
 #define UPDATER_SRVPACK_PATH        "/flash/sys/servicepack.ucf"
 #define UPDATER_SIGN_PATH           "/flash/sys/servicepack.sig"
@@ -63,7 +68,23 @@ typedef struct {
  ******************************************************************************/
 static updater_data_t updater_data = { .path = NULL, .fhandle = -1, .fsize = 0, .foffset = 0 };
 static OsiLockObj_t updater_LockObj;
+#ifndef TONIEBOX
 static sBootInfo_t sBootInfo;
+#endif
+
+/******************************************************************************
+ DEFINE PRIVATE FUNCTIONS
+ ******************************************************************************/
+int __end_with(const char *str, const char *suffix)
+{
+    if (!str || !suffix)
+        return 0;
+    size_t lenstr = strlen(str);
+    size_t lensuffix = strlen(suffix);
+    if (lensuffix >  lenstr)
+        return 0;
+    return strncmp(str + lenstr - lensuffix, suffix, lensuffix) == 0;
+}
 
 /******************************************************************************
  DEFINE PUBLIC FUNCTIONS
@@ -76,6 +97,19 @@ void updater_pre_init (void) {
 
 bool updater_check_path (void *path) {
     sl_LockObjLock (&updater_LockObj, SL_OS_WAIT_FOREVER);
+#ifdef TONIEBOX
+    if (!strncmp(UPDATER_SYS_PREFIX, path, strlen(UPDATER_SYS_PREFIX)) && __end_with(path, UPDATER_BOOT_POSTFIX)) {
+        char *pathCut = path;
+        pathCut += strlen(UPDATER_FLASH_PREFIX);
+        updater_data.fsize = sizeof(sBootInfo_t);
+        updater_data.path = pathCut;
+    } else if (!strncmp(UPDATER_SYS_PREFIX, path, strlen(UPDATER_SYS_PREFIX)) && __end_with(path, UPDATER_IMG_POSTFIX)) {
+        char *pathCut = path;
+        pathCut += strlen(UPDATER_FLASH_PREFIX);
+        updater_data.fsize = IMG_SIZE;
+        updater_data.path = pathCut;
+#endif
+#ifndef TONIEBOX
     if (!strcmp(UPDATER_IMG_PATH, path)) {
         updater_data.fsize = IMG_SIZE;
         updater_data.path = IMG_UPDATE1;
@@ -92,6 +126,7 @@ bool updater_check_path (void *path) {
                 updater_data.path = IMG_UPDATE2;
             }
         }
+#endif
 #endif
     } else if (!strcmp(UPDATER_SRVPACK_PATH, path)) {
         updater_data.path = IMG_SRVPACK;
@@ -147,12 +182,13 @@ bool updater_write (uint8_t *buf, uint32_t len) {
 }
 
 void updater_finnish (void) {
-    _i32 fhandle;
 
     if (updater_data.fhandle > 0) {
         sl_LockObjLock (&wlan_LockObj, SL_OS_WAIT_FOREVER);
         // close the file being updated
         sl_FsClose(updater_data.fhandle, NULL, NULL, 0);
+#ifndef TONIEBOX
+        _i32 fhandle;
 #ifdef WIPY
         // if we still have an image pending for verification, leave the boot info as it is
         if (!strncmp(IMG_PREFIX, updater_data.path, strlen(IMG_PREFIX)) && sBootInfo.Status != IMG_STATUS_CHECK) {
@@ -194,6 +230,7 @@ void updater_finnish (void) {
             ASSERT (sizeof(sBootInfo_t) == sl_FsWrite(fhandle, 0, (unsigned char *)&sBootInfo, sizeof(sBootInfo_t)));
             sl_FsClose(fhandle, 0, 0, 0);
         }
+#endif
         sl_LockObjUnlock (&wlan_LockObj);
         updater_data.fhandle = -1;
     }
