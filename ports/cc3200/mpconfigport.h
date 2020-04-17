@@ -216,9 +216,17 @@ typedef long            mp_off_t;
 #define MICROPY_MPHALPORT_H                         "cc3200_hal.h"
 #define MICROPY_PORT_HAS_TELNET                     (1)
 #define MICROPY_PORT_HAS_FTP                        (1)
-#define MICROPY_PY_SYS_PLATFORM                     "WiPy"
 
+#ifdef TONIEBOX
+#define MICROPY_PY_SYS_PLATFORM                     "Toniebox (CC3200)"
+#define MICROPY_PORT_WLAN_AP_SSID                   "mpy-toniebox"
+#define MICROPY_PORT_WLAN_AP_KEY                    ""
+#endif
+#ifndef TONIEBOX
+#define MICROPY_PY_SYS_PLATFORM                     "WiPy"
 #define MICROPY_PORT_WLAN_AP_SSID                   "wipy-wlan"
 #define MICROPY_PORT_WLAN_AP_KEY                    "www.wipy.io"
+#endif
+
 #define MICROPY_PORT_WLAN_AP_SECURITY               SL_SEC_TYPE_WPA_WPA2
 #define MICROPY_PORT_WLAN_AP_CHANNEL                5

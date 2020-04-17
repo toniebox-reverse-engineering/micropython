@@ -75,7 +75,7 @@ Flashing process using TI Uniflash:
 Once the software is running, you have two options to access the MicroPython REPL:
 
 - Through telnet.
-  * Connect to the network created by the board (as boots up in AP mode), **ssid = "wipy-wlan", key = "www.wipy.io"**.
+  * Connect to the network created by the board (as boots up in AP mode), **ssid = "mpy-toniebox", key = ""**.
     * You can also reinitialize the WLAN in station mode and connect to another AP, or in AP mode but with a
       different ssid and/or key.
   * Use your favourite telnet client with the following settings: **host = 192.168.1.1, port = 23.**
