@@ -51,6 +51,7 @@ extern "C"
 #define IMG_FACTORY             "/sys/pre-img.bin"
 #define IMG_UPDATE1             "/sys/pre-img1.bin"
 #define IMG_UPDATE2             "/sys/pre-img2.bin"
+#define IMG_UPDATE3             "/sys/pre-img3.bin"
 #define IMG_PREFIX              "/sys/pre-img"
 /*
 #define IMG_BOOT_INFO           "/sys/cfw-bootinfo.bin"
@@ -80,6 +81,7 @@ extern "C"
 #define IMG_ACT_FACTORY         0
 #define IMG_ACT_UPDATE1         1
 #define IMG_ACT_UPDATE2         2
+#define IMG_ACT_UPDATE3         3
 
 #define IMG_STATUS_CHECK        0
 #define IMG_STATUS_READY        1

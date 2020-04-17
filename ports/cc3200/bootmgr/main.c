@@ -327,6 +327,9 @@ static void bootmgr_image_loader(sBootInfo_t *psBootInfo) {
     case IMG_ACT_UPDATE2:
         image = (unsigned char *)IMG_UPDATE2;
         break;
+    case IMG_ACT_UPDATE3:
+        image = (unsigned char *)IMG_UPDATE3;
+        break;
     default:
         image = (unsigned char *)IMG_FACTORY;
         break;
@@ -365,6 +368,9 @@ static void bootmgr_image_loader(sBootInfo_t *psBootInfo) {
     case IMG_ACT_UPDATE2:
         image = (unsigned char *)IMG_UPDATE2;
         break;
+    case IMG_ACT_UPDATE3:
+        image = (unsigned char *)IMG_UPDATE3;
+        break;
     default:
         image = (unsigned char *)IMG_FACTORY;
         break;
@@ -378,7 +384,7 @@ static void prebootmgr_image_loader(sBootInfo_t *psBootInfo) {
     MAP_GPIOPinWrite(TONIEBOX_GREEN_LED_PORT, TONIEBOX_GREEN_LED_PORT_PIN, 0xFF);
 
     while (!(TONIEBOX_SMALL_EAR_PORT_PIN & MAP_GPIOPinRead(TONIEBOX_SMALL_EAR_PORT, TONIEBOX_SMALL_EAR_PORT_PIN))) {
-        UtilsDelay(UTILS_DELAY_US_TO_COUNT(100 * 1000)); //Wait while pressed
+        UtilsDelay(UTILS_DELAY_US_TO_COUNT(10 * 1000)); //Wait while pressed
     }
 
     while (!(TONIEBOX_BIG_EAR_PORT_PIN & MAP_GPIOPinRead(TONIEBOX_BIG_EAR_PORT, TONIEBOX_BIG_EAR_PORT_PIN))) {
@@ -388,6 +394,9 @@ static void prebootmgr_image_loader(sBootInfo_t *psBootInfo) {
                     psBootInfo->ActiveImg = IMG_ACT_UPDATE2;
                     break;                
                 case IMG_ACT_UPDATE2:
+                    psBootInfo->ActiveImg = IMG_ACT_UPDATE3;
+                    break;            
+                case IMG_ACT_UPDATE3:
                     psBootInfo->ActiveImg = IMG_ACT_FACTORY;
                     break;
                 default:
@@ -395,7 +404,7 @@ static void prebootmgr_image_loader(sBootInfo_t *psBootInfo) {
                     break;
                 }
             while (!(TONIEBOX_SMALL_EAR_PORT_PIN & MAP_GPIOPinRead(TONIEBOX_SMALL_EAR_PORT, TONIEBOX_SMALL_EAR_PORT_PIN))) {
-                UtilsDelay(UTILS_DELAY_US_TO_COUNT(100 * 1000)); //Wait while pressed
+                UtilsDelay(UTILS_DELAY_US_TO_COUNT(10 * 1000)); //Wait while pressed
             }
         }
         for (int i=0; i<psBootInfo->ActiveImg+1; i++) {
@@ -417,6 +426,9 @@ static void prebootmgr_image_loader(sBootInfo_t *psBootInfo) {
         break;
     case IMG_ACT_UPDATE2:
         image = (unsigned char *)IMG_UPDATE2; //MicroPython
+        break;
+    case IMG_ACT_UPDATE3:
+        image = (unsigned char *)IMG_UPDATE3; //MicroPython
         break;
     default:
         image = (unsigned char *)IMG_FACTORY; //Original
