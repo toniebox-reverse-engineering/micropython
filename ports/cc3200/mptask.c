@@ -98,12 +98,30 @@ OsiTaskHandle   svTaskHandle;
  ******************************************************************************/
 static fs_user_mount_t *sflash_vfs_fat;
 
-static const char fresh_main_py[] = "# main.py -- put your code here!\r\n";
+static const char fresh_main_py[] = "# main.py -- put your code here!\r\n"
+                                    #if defined(TONIEBOX)
+                                    "\r\nimport machine\r\n"
+                                    "from machine import WDT\r\n"
+                                    "import time\r\n"
+                                    "wdt = WDT(timeout=90000) #WDT Reset after 90s\r\n"
+                                    "time.sleep(60) #Reset after 60s\r\n"
+                                    "machine.reset()\r\n"
+                                    #endif
+                                    ;
+
 static const char fresh_boot_py[] = "# boot.py -- run on boot-up\r\n"
                                     "# can run arbitrary Python, but best to keep it minimal\r\n"
                                     #if MICROPY_STDIO_UART
                                     "import os, machine\r\n"
                                     "os.dupterm(machine.UART(0, " MP_STRINGIFY(MICROPY_STDIO_UART_BAUD) "))\r\n"
+                                    #endif
+                                    #if defined(TONIEBOX)
+                                    "\r\nimport machine\r\n"
+                                    "from machine import WDT\r\n"
+                                    "import time\r\n"
+                                    "wdt = WDT(timeout=90000) #WDT Reset after 90s\r\n"
+                                    "time.sleep(60) #Reset after 60s\r\n"
+                                    "machine.reset()\r\n"
                                     #endif
                                     ;
 
