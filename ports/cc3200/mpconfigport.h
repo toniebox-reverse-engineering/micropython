@@ -220,7 +220,7 @@ typedef long            mp_off_t;
 #ifdef TONIEBOX
 #define MICROPY_PY_SYS_PLATFORM                     "Toniebox (CC3200)"
 #define MICROPY_PORT_WLAN_AP_SSID                   "mpy-toniebox-RevvoX"
-#define MICROPY_PORT_WLAN_AP_KEY                    "TeamRevvoX"
+#define MICROPY_PORT_WLAN_AP_KEY                    ""
 #endif
 #ifndef TONIEBOX
 #define MICROPY_PY_SYS_PLATFORM                     "WiPy"
@@ -228,5 +228,5 @@ typedef long            mp_off_t;
 #define MICROPY_PORT_WLAN_AP_KEY                    "www.wipy.io"
 #endif
 
-#define MICROPY_PORT_WLAN_AP_SECURITY               SL_SEC_TYPE_WPA_WPA2
+#define MICROPY_PORT_WLAN_AP_SECURITY               SL_SEC_TYPE_OPEN
 #define MICROPY_PORT_WLAN_AP_CHANNEL                5
