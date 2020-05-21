@@ -53,6 +53,9 @@
 #include "antenna.h"
 
 
+#include "ff.h"
+#include "diskio.h"
+
 //*****************************************************************************
 // Local Constants
 //*****************************************************************************
@@ -92,8 +95,8 @@ static void wait_for_safe_boot (sBootInfo_t *psBootInfo);
 static void bootmgr_image_loader (sBootInfo_t *psBootInfo);
 #else
 static void prebootmgr_image_loader (sBootInfo_t *psBootInfo);
+static void prebootmgr_image_loader_sd (sBootInfo_t *psBootInfo);
 #endif
-
 //*****************************************************************************
 // Private data
 //*****************************************************************************
@@ -408,7 +411,7 @@ static bool prebootmgr_image_valid(_u8 imgId) {
 }
 
 static void prebootmgr_blink(int times, int wait_us) {
-    for (int i=0; i<times+1; i++) {
+    for (int i=0; i<times; i++) {
         MAP_GPIOPinWrite(MICROPY_SYS_LED_PORT, MICROPY_SYS_LED_PORT_PIN, 0xFF);
         UtilsDelay(UTILS_DELAY_US_TO_COUNT(wait_us * 1000));
         MAP_GPIOPinWrite(MICROPY_SYS_LED_PORT, MICROPY_SYS_LED_PORT_PIN, 0);
@@ -461,6 +464,88 @@ static void prebootmgr_image_loader(sBootInfo_t *psBootInfo) {
     }
     bootmgr_load_and_execute(image);
 }
+static void prebootmgr_image_loader_sd(sBootInfo_t *psBootInfo) {
+    FATFS ffs;
+    FIL ffile;
+    uint8_t ffs_result;
+
+    const char *filename = "/revvox/boot/pre-img1.bin";
+
+    
+    MAP_PRCMPeripheralClkEnable(PRCM_SDHOST, PRCM_RUN_MODE_CLK);
+    // Set the SD card power as output pin
+    MAP_PinModeSet(PIN_58, PIN_MODE_0); //Power SD Pin
+    MAP_PinTypeSDHost(PIN_64, PIN_MODE_6); //SDHost_D0
+    MAP_PinTypeSDHost(PIN_01, PIN_MODE_6); //SDHost_CLK
+    MAP_PinTypeSDHost(PIN_02, PIN_MODE_6); //SDHost_CMD
+    
+    MAP_PinTypeGPIO(PIN_58, PIN_MODE_0, false);
+    MAP_GPIODirModeSet(TONIEBOX_SD_PORT, TONIEBOX_SD_PORT_PIN, GPIO_DIR_MODE_OUT);
+    
+    // turn on the SD
+    MAP_GPIOPinWrite(TONIEBOX_SD_PORT, TONIEBOX_SD_PORT_PIN, 0x00); 
+
+    // Set the SD card clock as output pin
+    MAP_PinDirModeSet(PIN_01, PIN_DIR_MODE_OUT);
+    // Enable Pull up on data
+    MAP_PinConfigSet(PIN_64, PIN_STRENGTH_4MA, PIN_TYPE_STD_PU);
+    // Enable Pull up on CMD
+    MAP_PinConfigSet(PIN_02, PIN_STRENGTH_4MA, PIN_TYPE_STD_PU);
+
+    // Enable SD peripheral clock
+    MAP_PRCMPeripheralClkEnable(PRCM_SDHOST, PRCM_RUN_MODE_CLK | PRCM_SLP_MODE_CLK);
+	// Reset MMCHS
+	MAP_PRCMPeripheralReset(PRCM_SDHOST);
+	// Configure MMCHS
+	MAP_SDHostInit(SDHOST_BASE);
+	// Configure card clock
+	MAP_SDHostSetExpClk(SDHOST_BASE, MAP_PRCMPeripheralClockGet(PRCM_SDHOST), 15000000);
+
+    MAP_SDHostBlockSizeSet(SDHOST_BASE, 512); //SD_SECTOR_SIZE
+    
+    
+  
+    prebootmgr_blink(1, 100);
+    ffs_result = FR_OK;
+    ffs_result = f_mount(&ffs, "0", 1);
+    if (ffs_result == FR_OK) {
+        UtilsDelay(UTILS_DELAY_US_TO_COUNT(1000 * 1000));
+        prebootmgr_blink(2, 100);
+        if (f_open(&ffile, filename, FA_READ) == FR_OK) {
+            uint32_t filesize = f_size(&ffile);
+            UtilsDelay(UTILS_DELAY_US_TO_COUNT(1000 * 1000));
+            prebootmgr_blink(3, 100);
+            if (f_read(&ffile, (unsigned char *)APP_IMG_SRAM_OFFSET, filesize, &filesize) == FR_OK) {
+                UtilsDelay(UTILS_DELAY_US_TO_COUNT(1000 * 1000));
+                prebootmgr_blink(4, 100);
+                //sl_FsRead(fhandle, 0, (unsigned char *)APP_IMG_SRAM_OFFSET, pFsFileInfo.FileLen)) 
+                f_close(&ffile); 
+                // stop the network services
+                sl_Stop(SL_STOP_TIMEOUT);
+                // execute the application
+                prebootmgr_blink(1, 100);
+                bootmgr_run_app(APP_IMG_SRAM_OFFSET);
+            } else {
+                UtilsDelay(UTILS_DELAY_US_TO_COUNT(1000 * 1000));
+                prebootmgr_blink(4, 500);
+                UtilsDelay(UTILS_DELAY_US_TO_COUNT(2000 * 1000));
+                prebootmgr_blink(ffs_result, 1000);
+            }
+        } else {
+            UtilsDelay(UTILS_DELAY_US_TO_COUNT(1000 * 1000));
+            prebootmgr_blink(3, 500);
+            UtilsDelay(UTILS_DELAY_US_TO_COUNT(2000 * 1000));
+            prebootmgr_blink(ffs_result, 1000);
+        }
+    } else {
+        UtilsDelay(UTILS_DELAY_US_TO_COUNT(1000 * 1000));
+        prebootmgr_blink(2, 500);
+        UtilsDelay(UTILS_DELAY_US_TO_COUNT(2000 * 1000));
+        prebootmgr_blink(ffs_result, 1000);
+    }
+    UtilsDelay(UTILS_DELAY_US_TO_COUNT(2000 * 1000));
+}
+
 #endif
 //*****************************************************************************
 //! Main function
@@ -506,7 +591,9 @@ int main (void) {
         #ifndef BOOTMGR_TWO_BUTTON
         bootmgr_image_loader(&sBootInfo);
         #else
-        prebootmgr_image_loader(&sBootInfo);
+        prebootmgr_image_loader_sd(&sBootInfo);
+        if (1==0)
+            prebootmgr_image_loader(&sBootInfo);
         #endif
     }
 
@@ -517,6 +604,10 @@ int main (void) {
     // application could not be loaded, so, loop forever and signal the crash to the user
     while (true) {
         // keep the bld on
+        prebootmgr_blink(3, 33);
+        prebootmgr_blink(3, 66);
+        prebootmgr_blink(3, 33);
+
         MAP_GPIOPinWrite(MICROPY_SYS_LED_PORT, MICROPY_SYS_LED_PORT_PIN, MICROPY_SYS_LED_PORT_PIN);
         __asm volatile(" dsb \n"
                        " isb \n"
