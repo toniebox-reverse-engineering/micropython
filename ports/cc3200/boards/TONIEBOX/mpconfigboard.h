@@ -42,6 +42,7 @@
 #define TONIEBOX_GREEN_LED_PORT                     GPIOA3_BASE
 #define TONIEBOX_BIG_EAR_PORT                       GPIOA0_BASE
 #define TONIEBOX_SMALL_EAR_PORT                     GPIOA0_BASE
+#define TONIEBOX_SD_PORT                            GPIOA0_BASE
 
 #define TONIEBOX_GREEN_LED_GPIO                     pin_GP25
 #define TONIEBOX_GREEN_LED_PIN_NUM                  PIN_21      // GP25/SOP2
@@ -50,6 +51,7 @@
 #define TONIEBOX_GREEN_LED_PORT_PIN                 GPIO_PIN_1
 #define TONIEBOX_BIG_EAR_PORT_PIN                   GPIO_PIN_2
 #define TONIEBOX_SMALL_EAR_PORT_PIN                 GPIO_PIN_4
+#define TONIEBOX_SD_PORT_PIN                        GPIO_PIN_3
 /**/
 
 #define MICROPY_SYS_LED_PRCM                        TONIEBOX_GREEN_LED_PRCM
