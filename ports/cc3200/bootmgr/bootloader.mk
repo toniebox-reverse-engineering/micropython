@@ -2,6 +2,7 @@ BUILD = bootmgr/build/$(BOARD)/$(BTYPE)
 
 BOOT_INC  = -Ibootmgr
 BOOT_INC += -Ibootmgr/sl
+BOOT_INC += -Ibootmgr/lib/FatFs/src
 BOOT_INC += -Ihal
 BOOT_INC += -Ihal/inc
 BOOT_INC += -I$(TOP)/drivers/cc3100/inc
@@ -22,6 +23,7 @@ BOOT_HAL_SRC_C = $(addprefix hal/,\
 	gpio.c \
 	pin.c \
 	prcm.c \
+	sdhost.c \
 	shamd5.c \
 	spi.c \
 	startup_gcc.c \
@@ -70,9 +72,16 @@ BOOT_LIB_SRC_C = $(addprefix lib/,\
 	utils/printf.c \
 	)
 
+BOOT_FATFS_SRC_C = $(addprefix bootmgr/lib/FatFs/src/,\
+	ff.c \
+	diskio.c \
+	ccsbcs.c \
+	)
+
 OBJ  = $(addprefix $(BUILD)/, $(BOOT_HAL_SRC_C:.c=.o) $(BOOT_SL_SRC_C:.c=.o) $(BOOT_CC3100_SRC_C:.c=.o) $(BOOT_UTIL_SRC_C:.c=.o) $(BOOT_MISC_SRC_C:.c=.o))
 OBJ += $(addprefix $(BUILD)/, $(BOOT_MAIN_SRC_C:.c=.o) $(BOOT_MAIN_SRC_S:.s=.o) $(BOOT_PY_SRC_C:.c=.o))
 OBJ += $(addprefix $(BUILD)/, $(BOOT_LIB_SRC_C:.c=.o))
+OBJ += $(addprefix $(BUILD)/, $(BOOT_FATFS_SRC_C:.c=.o))
 
 # Add the linker script
 LINKER_SCRIPT = bootmgr/bootmgr.lds
