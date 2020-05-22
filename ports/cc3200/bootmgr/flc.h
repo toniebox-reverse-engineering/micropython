@@ -60,6 +60,13 @@ extern "C"
 #define IMG_UPDATE2             "/sys/cfw-img2.bin"
 #define IMG_PREFIX              "/sys/cfw-img"
 */
+#define IMG_SD_BOOT_INFO        "/revvox/boot/pre-bootinfo.bin"
+#define IMG_SD_FACTORY          "/revvox/boot/pre-img.bin"
+#define IMG_SD_UPDATE1          "/revvox/boot/pre-img1.bin"
+#define IMG_SD_UPDATE2          "/revvox/boot/pre-img2.bin"
+#define IMG_SD_UPDATE3          "/revvox/boot/pre-img3.bin"
+#define IMG_SD_PREFIX           "/revvox/boot/pre-img"
+
 #define IMG_SRVPACK             "/sys/servicepack.ucf"
 #define SRVPACK_SIGN            "/sys/servicepack.sig"
 
