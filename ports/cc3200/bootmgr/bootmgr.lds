@@ -24,7 +24,7 @@
  * THE SOFTWARE.
  */
 
-__stack_size__  = 1024;
+__stack_size__  = 256; /*1024;*/ 
 
 MEMORY
 {
