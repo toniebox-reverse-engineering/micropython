@@ -94,8 +94,11 @@ static bool safe_boot_request_start (uint32_t wait_time);
 static void wait_for_safe_boot (sBootInfo_t *psBootInfo);
 static void bootmgr_image_loader (sBootInfo_t *psBootInfo);
 #else
-static void prebootmgr_image_loader (sBootInfo_t *psBootInfo);
-static void prebootmgr_image_loader_sd (sBootInfo_t *psBootInfo);
+static FATFS fatfs;
+static void prebootmgr_image_loader (sBootInfo_t *psBootInfo, bool sd);
+static void prebootmgr_load_and_execute (const char *image, bool sd);
+static bool prepare_sd (void);
+static void prebootmgr_blink(int times, int wait_us);
 #endif
 //*****************************************************************************
 // Private data
@@ -382,30 +385,39 @@ static void bootmgr_image_loader(sBootInfo_t *psBootInfo) {
 }
 #else
 
-static unsigned char * prebootmgr_image_get_file(_u8 imgId) {
-    _u8 *image;
+static char * prebootmgr_image_get_file_sd(_u8 imgId) {
+    char* image;
     switch (imgId) {
     case IMG_ACT_UPDATE1:
-        image = (unsigned char *)IMG_UPDATE1; //Custom Firmware
+        image = IMG_SD_UPDATE1; //Custom Firmware
         break;
     case IMG_ACT_UPDATE2:
-        image = (unsigned char *)IMG_UPDATE2; //MicroPython
+        image = IMG_SD_UPDATE2; //MicroPython
         break;
     case IMG_ACT_UPDATE3:
-        image = (unsigned char *)IMG_UPDATE3; //MicroPython
+        image = IMG_SD_UPDATE3; //MicroPython
         break;
     default:
-        image = (unsigned char *)IMG_FACTORY; //Original
+        image = IMG_SD_FACTORY; //Original
         break;
     }
-    return (unsigned char *)image;
+    return image;
 }
-static bool prebootmgr_image_valid(_u8 imgId) {
-    _u8 *image = prebootmgr_image_get_file(imgId);
-    _i32 fhandle;
-    if (!sl_FsOpen((unsigned char *)image, FS_MODE_OPEN_READ, NULL, &fhandle)) {
-        sl_FsClose(fhandle, 0, 0, 0);
-        return true;
+static bool prebootmgr_image_valid(_u8 imgId, bool sd) {
+    const char *image = prebootmgr_image_get_file_sd(imgId);
+    
+    if (sd) {
+        FIL ffile;
+        if (f_open(&ffile, image, FA_READ) == FR_OK) {
+            f_close(&ffile); 
+            return true;
+        }
+    } else { 
+        _i32 fhandle;
+        if (!sl_FsOpen((unsigned char *)IMG_FACTORY, FS_MODE_OPEN_READ, NULL, &fhandle)) {
+            sl_FsClose(fhandle, 0, 0, 0);
+            return true;
+        }
     }
     return false;
 }
@@ -418,61 +430,95 @@ static void prebootmgr_blink(int times, int wait_us) {
         UtilsDelay(UTILS_DELAY_US_TO_COUNT(wait_us * 1000));
     }
 }
-
-static void prebootmgr_image_loader(sBootInfo_t *psBootInfo) {
-    _u8 *image;
-
-    MAP_GPIOPinWrite(TONIEBOX_GREEN_LED_PORT, TONIEBOX_GREEN_LED_PORT_PIN, 0xFF);
-
-    while (!(TONIEBOX_SMALL_EAR_PORT_PIN & MAP_GPIOPinRead(TONIEBOX_SMALL_EAR_PORT, TONIEBOX_SMALL_EAR_PORT_PIN))) {
-        UtilsDelay(UTILS_DELAY_US_TO_COUNT(10 * 1000)); //Wait while pressed
+static void prebootmgr_load_and_execute(const char *image, bool sd) {
+    if (sd) {
+        FIL ffile;
+        uint8_t ffs_result;
+    
+        ffs_result = f_open(&ffile, image, FA_READ);
+        if (ffs_result == FR_OK) {
+            uint32_t filesize = f_size(&ffile);
+            ffs_result = f_read(&ffile, (unsigned char *)APP_IMG_SRAM_OFFSET, filesize, &filesize);
+            if (ffs_result == FR_OK) {
+                f_close(&ffile); 
+                // stop the network services
+                sl_Stop(SL_STOP_TIMEOUT);
+                // execute the application
+                bootmgr_run_app(APP_IMG_SRAM_OFFSET);
+            } else {
+                UtilsDelay(UTILS_DELAY_US_TO_COUNT(1000 * 1000));
+                prebootmgr_blink(4, 500);
+                UtilsDelay(UTILS_DELAY_US_TO_COUNT(2000 * 1000));
+                prebootmgr_blink(ffs_result, 1000);
+            }
+        } else {
+            UtilsDelay(UTILS_DELAY_US_TO_COUNT(1000 * 1000));
+            prebootmgr_blink(3, 500);
+            UtilsDelay(UTILS_DELAY_US_TO_COUNT(2000 * 1000));
+            prebootmgr_blink(ffs_result, 1000);
+        }
+        UtilsDelay(UTILS_DELAY_US_TO_COUNT(2000 * 1000));
+    } else {
+        bootmgr_load_and_execute((_u8 *)image);
     }
+}
 
-    while (!(TONIEBOX_BIG_EAR_PORT_PIN & MAP_GPIOPinRead(TONIEBOX_BIG_EAR_PORT, TONIEBOX_BIG_EAR_PORT_PIN))) {
-        if (!(TONIEBOX_SMALL_EAR_PORT_PIN & MAP_GPIOPinRead(TONIEBOX_SMALL_EAR_PORT, TONIEBOX_SMALL_EAR_PORT_PIN))) {
-            switch (psBootInfo->ActiveImg) {
-                case IMG_ACT_UPDATE1:
-                    psBootInfo->ActiveImg = IMG_ACT_UPDATE2;
-                    break;                
-                case IMG_ACT_UPDATE2:
-                    psBootInfo->ActiveImg = IMG_ACT_UPDATE3;
-                    break;            
-                case IMG_ACT_UPDATE3:
-                    psBootInfo->ActiveImg = IMG_ACT_FACTORY;
-                    break;
-                default:
-                    psBootInfo->ActiveImg = IMG_ACT_UPDATE1;
-                    break;
+static void prebootmgr_image_loader(sBootInfo_t *psBootInfo, bool sd) {
+    const char *image;
+
+    if (sd) {
+        MAP_GPIOPinWrite(TONIEBOX_GREEN_LED_PORT, TONIEBOX_GREEN_LED_PORT_PIN, 0xFF);
+
+        while (!(TONIEBOX_SMALL_EAR_PORT_PIN & MAP_GPIOPinRead(TONIEBOX_SMALL_EAR_PORT, TONIEBOX_SMALL_EAR_PORT_PIN))) {
+            UtilsDelay(UTILS_DELAY_US_TO_COUNT(10 * 1000)); //Wait while pressed
+        }
+
+        while (!(TONIEBOX_BIG_EAR_PORT_PIN & MAP_GPIOPinRead(TONIEBOX_BIG_EAR_PORT, TONIEBOX_BIG_EAR_PORT_PIN))) {
+            if (!(TONIEBOX_SMALL_EAR_PORT_PIN & MAP_GPIOPinRead(TONIEBOX_SMALL_EAR_PORT, TONIEBOX_SMALL_EAR_PORT_PIN))) {
+                switch (psBootInfo->ActiveImg) {
+                    case IMG_ACT_UPDATE1:
+                        psBootInfo->ActiveImg = IMG_ACT_UPDATE2;
+                        break;                
+                    case IMG_ACT_UPDATE2:
+                        psBootInfo->ActiveImg = IMG_ACT_UPDATE3;
+                        break;            
+                    case IMG_ACT_UPDATE3:
+                        psBootInfo->ActiveImg = IMG_ACT_FACTORY;
+                        break;
+                    default:
+                        psBootInfo->ActiveImg = IMG_ACT_UPDATE1;
+                        break;
+                    }
+                while (!(TONIEBOX_SMALL_EAR_PORT_PIN & MAP_GPIOPinRead(TONIEBOX_SMALL_EAR_PORT, TONIEBOX_SMALL_EAR_PORT_PIN))) {
+                    UtilsDelay(UTILS_DELAY_US_TO_COUNT(10 * 1000)); //Wait while pressed
                 }
-            while (!(TONIEBOX_SMALL_EAR_PORT_PIN & MAP_GPIOPinRead(TONIEBOX_SMALL_EAR_PORT, TONIEBOX_SMALL_EAR_PORT_PIN))) {
-                UtilsDelay(UTILS_DELAY_US_TO_COUNT(10 * 1000)); //Wait while pressed
+            }
+            prebootmgr_blink(psBootInfo->ActiveImg + 1, 100);
+            UtilsDelay(UTILS_DELAY_US_TO_COUNT(500 * 1000));
+        }
+    
+        MAP_GPIOPinWrite(TONIEBOX_GREEN_LED_PORT, TONIEBOX_GREEN_LED_PORT_PIN, 0); // turn off the system led
+
+        // search for the active image
+        if (!prebootmgr_image_valid(psBootInfo->ActiveImg, sd)) {
+            prebootmgr_blink(10, 33); //Warning about fallback
+            psBootInfo->ActiveImg = IMG_ACT_FACTORY;
+            if (!prebootmgr_image_valid(psBootInfo->ActiveImg, sd)) {
+                prebootmgr_blink(10, 33); //Warning about fallback2
+                prebootmgr_load_and_execute(IMG_FACTORY, false);
             }
         }
-        prebootmgr_blink(psBootInfo->ActiveImg, 100);
-        UtilsDelay(UTILS_DELAY_US_TO_COUNT(500 * 1000));
-    }
-    
-    MAP_GPIOPinWrite(TONIEBOX_GREEN_LED_PORT, TONIEBOX_GREEN_LED_PORT_PIN, 0); // turn off the system led
-
-
-    // search for the active image
-    if (prebootmgr_image_valid(psBootInfo->ActiveImg)) {
-        image = prebootmgr_image_get_file(psBootInfo->ActiveImg);
+        image = prebootmgr_image_get_file_sd(psBootInfo->ActiveImg);
     } else {
-        prebootmgr_blink(10, 33); //Warning about fallback
-        image = (unsigned char *)IMG_FACTORY;
+        image = IMG_FACTORY;
     }
-    bootmgr_load_and_execute(image);
-}
-static void prebootmgr_image_loader_sd(sBootInfo_t *psBootInfo) {
-    FATFS ffs;
-    FIL ffile;
-    uint8_t ffs_result;
-
-    const char *filename = "/revvox/boot/pre-img1.bin";
-
+    prebootmgr_load_and_execute(image, sd);
     
-    MAP_PRCMPeripheralClkEnable(PRCM_SDHOST, PRCM_RUN_MODE_CLK);
+    
+}
+
+static bool prepare_sd() {
+    //MAP_PRCMPeripheralClkEnable(PRCM_SDHOST, PRCM_RUN_MODE_CLK);
     // Set the SD card power as output pin
     MAP_PinModeSet(PIN_58, PIN_MODE_0); //Power SD Pin
     MAP_PinTypeSDHost(PIN_64, PIN_MODE_6); //SDHost_D0
@@ -503,47 +549,17 @@ static void prebootmgr_image_loader_sd(sBootInfo_t *psBootInfo) {
 
     MAP_SDHostBlockSizeSet(SDHOST_BASE, 512); //SD_SECTOR_SIZE
     
-    
-  
-    prebootmgr_blink(1, 100);
-    ffs_result = FR_OK;
-    ffs_result = f_mount(&ffs, "0", 1);
+    UtilsDelay(UTILS_DELAY_US_TO_COUNT(100 * 1000));
+    uint8_t ffs_result = f_mount(&fatfs, "0", 1);
     if (ffs_result == FR_OK) {
-        UtilsDelay(UTILS_DELAY_US_TO_COUNT(1000 * 1000));
-        prebootmgr_blink(2, 100);
-        if (f_open(&ffile, filename, FA_READ) == FR_OK) {
-            uint32_t filesize = f_size(&ffile);
-            UtilsDelay(UTILS_DELAY_US_TO_COUNT(1000 * 1000));
-            prebootmgr_blink(3, 100);
-            if (f_read(&ffile, (unsigned char *)APP_IMG_SRAM_OFFSET, filesize, &filesize) == FR_OK) {
-                UtilsDelay(UTILS_DELAY_US_TO_COUNT(1000 * 1000));
-                prebootmgr_blink(4, 100);
-                //sl_FsRead(fhandle, 0, (unsigned char *)APP_IMG_SRAM_OFFSET, pFsFileInfo.FileLen)) 
-                f_close(&ffile); 
-                // stop the network services
-                sl_Stop(SL_STOP_TIMEOUT);
-                // execute the application
-                prebootmgr_blink(1, 100);
-                bootmgr_run_app(APP_IMG_SRAM_OFFSET);
-            } else {
-                UtilsDelay(UTILS_DELAY_US_TO_COUNT(1000 * 1000));
-                prebootmgr_blink(4, 500);
-                UtilsDelay(UTILS_DELAY_US_TO_COUNT(2000 * 1000));
-                prebootmgr_blink(ffs_result, 1000);
-            }
-        } else {
-            UtilsDelay(UTILS_DELAY_US_TO_COUNT(1000 * 1000));
-            prebootmgr_blink(3, 500);
-            UtilsDelay(UTILS_DELAY_US_TO_COUNT(2000 * 1000));
-            prebootmgr_blink(ffs_result, 1000);
-        }
-    } else {
-        UtilsDelay(UTILS_DELAY_US_TO_COUNT(1000 * 1000));
-        prebootmgr_blink(2, 500);
-        UtilsDelay(UTILS_DELAY_US_TO_COUNT(2000 * 1000));
-        prebootmgr_blink(ffs_result, 1000);
+        return true;
     }
-    UtilsDelay(UTILS_DELAY_US_TO_COUNT(2000 * 1000));
+
+    UtilsDelay(UTILS_DELAY_US_TO_COUNT(500 * 1000));
+    prebootmgr_blink(2, 500);
+    UtilsDelay(UTILS_DELAY_US_TO_COUNT(500 * 1000));
+    prebootmgr_blink(ffs_result, 1000);
+    return false;
 }
 
 #endif
@@ -553,7 +569,6 @@ static void prebootmgr_image_loader_sd(sBootInfo_t *psBootInfo) {
 int main (void) {
     sBootInfo_t sBootInfo = { .ActiveImg = IMG_ACT_FACTORY, .Status = IMG_STATUS_READY, .PrevImg = IMG_ACT_FACTORY };
     bool bootapp = false;
-    _i32 fhandle;
 
     // board setup
     bootmgr_board_init();
@@ -561,6 +576,7 @@ int main (void) {
     // start simplelink since we need it to access the sflash
     sl_Start(0, 0, 0);
 
+    _i32 fhandle;
     // if a boot info file is found, load it, else, create a new one with the default boot info
     if (!sl_FsOpen((unsigned char *)IMG_BOOT_INFO, FS_MODE_OPEN_READ, NULL, &fhandle)) {
         if (sizeof(sBootInfo_t) == sl_FsRead(fhandle, 0, (unsigned char *)&sBootInfo, sizeof(sBootInfo_t))) {
@@ -591,9 +607,11 @@ int main (void) {
         #ifndef BOOTMGR_TWO_BUTTON
         bootmgr_image_loader(&sBootInfo);
         #else
-        prebootmgr_image_loader_sd(&sBootInfo);
-        if (1==0)
-            prebootmgr_image_loader(&sBootInfo);
+        if (prepare_sd()) {
+            prebootmgr_image_loader(&sBootInfo, true); //boot sd
+        } else {
+            prebootmgr_image_loader(&sBootInfo, false); //boot flash
+        }
         #endif
     }
 
