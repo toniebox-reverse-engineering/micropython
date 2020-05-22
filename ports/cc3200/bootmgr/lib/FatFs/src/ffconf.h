@@ -26,7 +26,7 @@
 
 
 //#define	_USE_STRFUNC	0
-#define	_USE_STRFUNC	1
+#define	_USE_STRFUNC	0
 /* This option switches string functions, f_gets(), f_putc(), f_puts() and
 /  f_printf().
 /
@@ -53,7 +53,7 @@
 
 
 //#define _USE_CHMOD		0
-#define _USE_CHMOD		1
+#define _USE_CHMOD		0
 /* This option switches attribute manipulation functions, f_chmod() and f_utime().
 /  (0:Disable or 1:Enable) Also _FS_READONLY needs to be 0 to enable this option. */
 
@@ -207,7 +207,7 @@
 / System Configurations
 /---------------------------------------------------------------------------*/
 
-#define	_FS_TINY	0
+#define	_FS_TINY	1
 /* This option switches tiny buffer configuration. (0:Normal or 1:Tiny)
 /  At the tiny configuration, size of file object (FIL) is shrinked _MAX_SS bytes.
 /  Instead of private sector buffer eliminated from the file object, common sector
@@ -223,7 +223,7 @@
 #define _FS_NORTC	0
 #define _NORTC_MON	1
 #define _NORTC_MDAY	1
-#define _NORTC_YEAR	2016
+#define _NORTC_YEAR	2020
 /* The option _FS_NORTC switches timestamp functiton. If the system does not have
 /  any RTC function or valid timestamp is not needed, set _FS_NORTC = 1 to disable
 /  the timestamp function. All objects modified by FatFs will have a fixed timestamp
